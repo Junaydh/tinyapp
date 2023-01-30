@@ -17,13 +17,29 @@ const getUserByEmail = function(email) {
   return true;
 };
 
+const urlsForUser = function(id) {
+  let ret = {};
+  for (const url in urlDatabase) {
+    if (urlDatabase[url].userID === id) {
+      ret[url] = urlDatabase[url];
+    }
+  }
+  return ret;
+}
+
 app.set('view engine', 'ejs');
 app.use(express.urlencoded({extended: true }));
 app.use(cookieParser());
 
 const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+  "b2xVn2": {
+    longURL: "http://www.lighthouselabs.ca",
+    userID: 'userRandomID'
+  },
+  "9sm5xK": {
+    longURL: "http://www.google.com",
+    userID: 'user2RandomID'
+  }
 };
 
 const users = {
@@ -41,53 +57,130 @@ const users = {
 
 app.get('/urls', (req, res) => {
   let user = users[req.cookies['user_id']];
-  const templateVars = { urls: urlDatabase, user};
-  res.render('urls_index', templateVars);
+  if (user) {
+    let urlList = urlsForUser(user.id);
+    if (Object.keys(urlList).length !== 0) {
+      const templateVars = { urls: urlList, user};
+      res.render('urls_index', templateVars);
+    } else {
+      res.send("<html><body><b>No URLs to display</b></body></html>\n")
+    }
+  } else {
+    res.send("<html><body><b>You must be logged in to see urls</b></body></html>\n");
+  }
+
 });
 
 app.post('/urls', (req, res) => {
-  let id = generateRandomString();
-  urlDatabase[id] = req.body.longURL;
-  res.redirect(`urls/${id}`);
+  let user = users[req.cookies['user_id']];
+  if (user) {
+    let id = generateRandomString();
+    urlDatabase[id] = {longURL: req.body.longURL, userID: user.id}
+    res.redirect(`urls/${id}`);
+  } else {
+    res.send("<html><body><b>You must be logged in to create TinyURLS</b></body></html>\n");
+  }
 })
 
 app.post('/urls/:id/delete', (req, res) => {
-  delete urlDatabase[req.params.id];
-  res.redirect('/urls')
+  let user = users[req.cookies['user_id']];
+  if (urlDatabase.hasOwnProperty(req.params.id)) {
+    if (user) {
+      let urlList = urlsForUser(user.id)
+      if (urlList.hasOwnProperty(req.params.id)) {
+        delete urlDatabase[req.params.id];
+        res.redirect('/urls')
+      } else {
+        res.status(403);
+        res.send('URL does not belong to user')
+      }
+    } else {
+      res.status(403);
+      res.send('You must be logged in to complete this action')
+    }
+  } else {
+    res.status(403);
+    res.send("URL ID doesn't exist");
+  }
+
 })
 
 app.get('/urls/new', (req, res) => {
   let user = users[req.cookies['user_id']];
-  const templateVars = {user};
-  res.render('urls_new', templateVars);
+  if (user) {
+    const templateVars = {user};
+    res.render('urls_new', templateVars);
+  } else {
+    res.redirect('/login')
+  }
 });
 
 app.get('/register', (req, res) => {
   let user = users[req.cookies['user_id']];
-  const templateVars = { user };
-  res.render('urls_register', templateVars);
+  if (!user) {
+    const templateVars = { user };
+    res.render('urls_register', templateVars);
+  } else {
+    res.redirect('/urls');
+  }
 })
 
 app.get('/login', (req, res) => {
   let user = users[req.cookies['user_id']];
-  const templateVars = { user };
-  res.render('urls_login', templateVars);
+  if (!user) {
+    const templateVars = { user };
+    res.render('urls_login', templateVars);
+  } else {
+    res.redirect('/urls');
+  }
 })
 
 app.get('/urls/:id', (req, res) => {
   let user = users[req.cookies['user_id']];
-  const templateVars = { id: req.params.id, longURL: urlDatabase[req.params.id], user};
-  res.render("urls_show", templateVars);
+  if (user) {
+    let urlList = urlsForUser(user.id)
+    if (urlList.hasOwnProperty(req.params.id)) {
+      const templateVars = { id: req.params.id, longURL: urlList[req.params.id].longURL, user};
+      res.render("urls_show", templateVars);
+    } else {
+      res.send("<html><body><b>TinyURL doesn't match your UserID</b></body></html>\n")
+    }
+  } else {
+    res.send("<html><body><b>You must be logged in to see urls</b></body></html>\n");
+  }
+  
 });
 
 app.post('/urls/:id', (req, res) => {
-  urlDatabase[req.params.id] = req.body.longURL;
-  res.redirect(`/urls`);
+  let user = users[req.cookies['user_id']];
+  if (urlDatabase.hasOwnProperty(req.params.id)) {
+    if (user) {
+      let urlList = urlsForUser(user.id)
+      if (urlList.hasOwnProperty(req.params.id)) {
+        urlDatabase[req.params.id] = req.body.longURL;
+        res.redirect(`/urls`);
+      } else {
+        res.status(403);
+        res.send('URL does not belong to user')
+      }
+    } else {
+      res.status(403);
+      res.send('You must be logged in to complete this action')
+    }
+  } else {
+    res.status(403);
+    res.send("URL ID doesn't exist");
+  }
 })
 
 app.get("/u/:id", (req, res) => {
-  const longURL = urlDatabase[req.params.id];
-  res.redirect(longURL);
+  if (urlDatabase.hasOwnProperty(req.params.id)) {
+    const longURL = urlDatabase[req.params.id].longURL;
+    res.redirect(longURL);
+  } else {
+    res.status(403);
+    res.send('TinyURL does not exist');
+  }
 });
 
 app.get("/", (req, res) => {
