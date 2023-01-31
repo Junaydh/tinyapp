@@ -3,28 +3,10 @@ const app = express();
 const PORT = 8080; // default port 8080
 const bcrypt = require('bcryptjs');
 const cookieSession = require('cookie-session');
+const { getUserByEmail, urlsForUser } = require('./helper')
 
 const generateRandomString = function() {
   return Math.floor((1 + Math.random()) * 0x1000000).toString(16).substring(1);
-}
-
-const getUserByEmail = function(email, database) {
-  for (const user in database) {
-    if (database[user].email === email) {
-      return database[user]
-    }
-  }
-  return true;
-};
-
-const urlsForUser = function(id) {
-  let ret = {};
-  for (const url in urlDatabase) {
-    if (urlDatabase[url].userID === id) {
-      ret[url] = urlDatabase[url];
-    }
-  }
-  return ret;
 }
 
 app.set('view engine', 'ejs');
@@ -52,7 +34,7 @@ const users = {
 app.get('/urls', (req, res) => {
   let user = users[req.session.user_id];
   if (user) {
-    let urlList = urlsForUser(user.id);
+    let urlList = urlsForUser(user.id, urlDatabase);
     if (Object.keys(urlList).length !== 0) {
       const templateVars = { urls: urlList, user};
       res.render('urls_index', templateVars);
@@ -80,7 +62,7 @@ app.post('/urls/:id/delete', (req, res) => {
   let user = users[req.session.user_id];
   if (urlDatabase.hasOwnProperty(req.params.id)) {
     if (user) {
-      let urlList = urlsForUser(user.id)
+      let urlList = urlsForUser(user.id, urlDatabase)
       if (urlList.hasOwnProperty(req.params.id)) {
         delete urlDatabase[req.params.id];
         res.redirect('/urls')
@@ -132,7 +114,7 @@ app.get('/login', (req, res) => {
 app.get('/urls/:id', (req, res) => {
   let user = users[req.session.user_id];
   if (user) {
-    let urlList = urlsForUser(user.id)
+    let urlList = urlsForUser(user.id, urlDatabase)
     if (urlList.hasOwnProperty(req.params.id)) {
       const templateVars = { id: req.params.id, longURL: urlList[req.params.id].longURL, user};
       res.render("urls_show", templateVars);
@@ -149,9 +131,9 @@ app.post('/urls/:id', (req, res) => {
   let user = users[req.session.user_id];
   if (urlDatabase.hasOwnProperty(req.params.id)) {
     if (user) {
-      let urlList = urlsForUser(user.id)
+      let urlList = urlsForUser(user.id, urlDatabase)
       if (urlList.hasOwnProperty(req.params.id)) {
-        urlDatabase[req.params.id] = req.body.longURL;
+        urlDatabase[req.params.id] = {longURL: req.body.longURL, userID: user.id}
         res.redirect(`/urls`);
       } else {
         res.status(403);
@@ -191,7 +173,7 @@ app.get("/hello", (req, res) => {
 
 app.post('/register', (req, res) => {
   let id = generateRandomString();
-  let user = getUserByEmail(req.body.email);
+  let user = getUserByEmail(req.body.email, users);
   if (req.body.email && req.body.password) { 
     if (user) {
       users[id] = { id, email: req.body.email, password: bcrypt.hashSync(req.body.password, 10) };
@@ -205,7 +187,7 @@ app.post('/register', (req, res) => {
 });
 
 app.post('/login' ,(req, res) => {
-  let user = getUserByEmail(req.body.email);
+  let user = getUserByEmail(req.body.email, users);
   if (user) {
     if (bcrypt.compareSync(req.body.password, user.password)) {
       req.session.user_id = user.id;
