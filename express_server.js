@@ -3,7 +3,7 @@ const app = express();
 const PORT = 8080; // default port 8080
 const bcrypt = require('bcryptjs');
 const cookieSession = require('cookie-session');
-const { getUserByEmail, urlsForUser, generateRandomString } = require('./helper')
+const { getUserByEmail, urlsForUser, generateRandomString } = require('./helper');
 
 // setting middleware
 app.set('view engine', 'ejs');
@@ -11,8 +11,8 @@ app.use(express.urlencoded({extended: true }));
 app.use(cookieSession({
   name: 'session',
   keys: ['user_id'],
-  maxAge: 24 * 60 * 60 * 1000 
-}))
+  maxAge: 24 * 60 * 60 * 1000
+}));
 
 // database constants
 const urlDatabase = {
@@ -30,7 +30,7 @@ app.get('/urls', (req, res) => {
       const templateVars = { urls: urlList, user};
       res.render('urls_index', templateVars);
     } else {
-      res.send("<html><body><b>No URLs to display. <a href='/urls/new'>click here to make one!</a></b></body></html>\n")
+      res.send("<html><body><b>No URLs to display. <a href='/urls/new'>click here to make one!</a></b></body></html>\n");
     }
   } else {
     res.send("<html><body><b>You must be logged in to see urls</b></body></html>\n");
@@ -43,36 +43,36 @@ app.post('/urls', (req, res) => {
   let user = users[req.session.user_id];
   if (user) {
     let id = generateRandomString();
-    urlDatabase[id] = {longURL: req.body.longURL, userID: user.id}
+    urlDatabase[id] = {longURL: req.body.longURL, userID: user.id};
     res.redirect(`urls/${id}`);
   } else {
     res.send("<html><body><b>You must be logged in to create TinyURLS</b></body></html>\n");
   }
-})
+});
 
 // post request to delete a url
 app.post('/urls/:id/delete', (req, res) => {
   let user = users[req.session.user_id];
   if (urlDatabase.hasOwnProperty(req.params.id)) {
     if (user) {
-      let urlList = urlsForUser(user.id, urlDatabase)
+      let urlList = urlsForUser(user.id, urlDatabase);
       if (urlList.hasOwnProperty(req.params.id)) {
         delete urlDatabase[req.params.id];
-        res.redirect('/urls')
+        res.redirect('/urls');
       } else {
         res.status(403);
-        res.send('URL does not belong to user')
+        res.send('URL does not belong to user');
       }
     } else {
       res.status(403);
-      res.send('You must be logged in to complete this action')
+      res.send('You must be logged in to complete this action');
     }
   } else {
     res.status(403);
     res.send("URL ID doesn't exist");
   }
 
-})
+});
 
 //get request for urls_new
 app.get('/urls/new', (req, res) => {
@@ -81,7 +81,7 @@ app.get('/urls/new', (req, res) => {
     const templateVars = {user};
     res.render('urls_new', templateVars);
   } else {
-    res.redirect('/login')
+    res.redirect('/login');
   }
 });
 
@@ -94,7 +94,7 @@ app.get('/register', (req, res) => {
   } else {
     res.redirect('/urls');
   }
-})
+});
 
 // get request for urls_login
 app.get('/login', (req, res) => {
@@ -105,18 +105,18 @@ app.get('/login', (req, res) => {
   } else {
     res.redirect('/urls');
   }
-})
+});
 
 // get request for a specific tinyURL's url_show page
 app.get('/urls/:id', (req, res) => {
   let user = users[req.session.user_id];
   if (user) {
-    let urlList = urlsForUser(user.id, urlDatabase)
+    let urlList = urlsForUser(user.id, urlDatabase);
     if (urlList.hasOwnProperty(req.params.id)) {
       const templateVars = { id: req.params.id, longURL: urlList[req.params.id].longURL, user};
       res.render("urls_show", templateVars);
     } else {
-      res.send("<html><body><b>TinyURL doesn't match your UserID</b></body></html>\n")
+      res.send("<html><body><b>TinyURL doesn't match your UserID</b></body></html>\n");
     }
   } else {
     res.send("<html><body><b>You must be logged in to see urls</b></body></html>\n");
@@ -129,23 +129,23 @@ app.post('/urls/:id', (req, res) => {
   let user = users[req.session.user_id];
   if (urlDatabase.hasOwnProperty(req.params.id)) {
     if (user) {
-      let urlList = urlsForUser(user.id, urlDatabase)
+      let urlList = urlsForUser(user.id, urlDatabase);
       if (urlList.hasOwnProperty(req.params.id)) {
-        urlDatabase[req.params.id] = {longURL: req.body.longURL, userID: user.id}
+        urlDatabase[req.params.id] = {longURL: req.body.longURL, userID: user.id};
         res.redirect(`/urls`);
       } else {
         res.status(403);
-        res.send('URL does not belong to user')
+        res.send('URL does not belong to user');
       }
     } else {
       res.status(403);
-      res.send('You must be logged in to complete this action')
+      res.send('You must be logged in to complete this action');
     }
   } else {
     res.status(403);
     res.send("URL ID doesn't exist");
   }
-})
+});
 
 // get request for the actual tinyURL which redirects to the associated longURL
 app.get("/u/:id", (req, res) => {
@@ -162,14 +162,14 @@ app.get("/u/:id", (req, res) => {
 app.post('/register', (req, res) => {
   let id = generateRandomString();
   let user = getUserByEmail(req.body.email, users);
-  if (req.body.email && req.body.password) { 
+  if (req.body.email && req.body.password) {
     if (!user) {
       users[id] = { id, email: req.body.email, password: bcrypt.hashSync(req.body.password, 10) };
       req.session.user_id = users[id].id;
       res.redirect('/urls/new');
     } else {
       res.status(400);
-      res.send('Email already in use!')
+      res.send('Email already in use!');
     }
   } else {
     res.status(400);
@@ -183,22 +183,22 @@ app.post('/login' ,(req, res) => {
   if (user) {
     if (bcrypt.compareSync(req.body.password, user.password)) {
       req.session.user_id = user.id;
-      res.redirect('/urls')
+      res.redirect('/urls');
     } else {
       res.status(403);
-      res.send('Password does not match user records')
+      res.send('Password does not match user records');
     }
   } else {
     res.status(403);
-    res.send('Email does not exist in user database')
+    res.send('Email does not exist in user database');
   }
-})
+});
 
 //post request for logging out of user account
 app.post('/logout', (req, res) => {
   req.session = null;
   res.redirect('/login');
-})
+});
 
 app.listen(PORT, () => {
   console.log(`TinyApp listening on port ${PORT}!`);
